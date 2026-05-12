@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import Upload from './Upload'
 
 function App() {
   const [connected, setConnected] = useState(false)
@@ -16,6 +17,8 @@ function App() {
     <div style={{ padding: '40px', fontFamily: 'sans-serif' }}>
       <h1>Stock Radar</h1>
       <p>Supabase 연결 상태: {connected ? '✅ 연결됨' : '❌ 연결 안됨'}</p>
+      <hr />
+      <Upload />
     </div>
   )
 }
