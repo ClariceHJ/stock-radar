@@ -25,11 +25,10 @@ function App() {
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true)
-    const [{ data: judgments }, { data: items }, { data: classifications }, { data: actuals }, { data: history }] = await Promise.all([
+    const [{ data: judgments }, { data: items }, { data: classifications }, { data: history }] = await Promise.all([
       supabase.from('judgments').select('*'),
       supabase.from('items').select('item_code, item_name, size, series, supplier, lead_time_days, product_group'),
       supabase.from('stock_classification').select('item_code, stock_type, operation_grade'),
-      supabase.from('monthly_actuals').select('item_code, reference_date'),
       supabase.from('transition_history').select('*').order('changed_at', { ascending: false }),
     ])
 
@@ -65,8 +64,8 @@ function App() {
     }
 
     const historyMerged = (history || []).map(h => ({ ...h, ...itemMap[h.item_code] }))
-    const dates = (actuals || []).map(a => a.reference_date).filter(Boolean).sort()
-    if (dates.length) setRefDate(dates[dates.length - 1])
+    const latestJudgedAt = (judgments || []).map(j => j.judged_at).filter(Boolean).sort().pop()
+    if (latestJudgedAt) setRefDate(latestJudgedAt.slice(0, 10))
 
     setDashData(merged)
     setShipmentMap(sMap)

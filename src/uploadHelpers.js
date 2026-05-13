@@ -49,16 +49,6 @@ export async function uploadBaseInfo(rows) {
     .upsert(classifications, { onConflict: 'item_code' })
   if (classError) throw new Error('stock_classification 저장 실패: ' + classError.message)
 
-  const actuals = rows.map(row => ({
-    item_code: row['CODE'],
-    reference_date: new Date().toISOString().slice(0, 10),
-  }))
-
-  const { error: actualsError } = await supabase
-    .from('monthly_actuals')
-    .upsert(actuals, { onConflict: 'item_code' })
-  if (actualsError) throw new Error('monthly_actuals 저장 실패: ' + actualsError.message)
-
   return items.length
 }
 
