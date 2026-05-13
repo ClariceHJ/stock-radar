@@ -1,20 +1,85 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabase'
-import Upload from './Upload'
+import Setup from './Upload'
+import { TabOverview, TabAnalysis, TabHistory } from './Dashboard'
 import { runJudgments } from './judgmentEngine'
+
+const NAV_TABS = [
+  { key: 'setup', label: 'Setup' },
+  { key: 'overview', label: 'Overview' },
+  { key: 'analysis', label: 'Analysis' },
+  { key: 'history', label: 'History' },
+]
 
 function App() {
   const [connected, setConnected] = useState(false)
   const [judging, setJudging] = useState(false)
   const [judgmentStatus, setJudgmentStatus] = useState('')
+  const [tab, setTab] = useState('overview')
+
+  const [dashData, setDashData] = useState([])
+  const [shipmentMap, setShipmentMap] = useState({})
+  const [allHistory, setAllHistory] = useState([])
+  const [refDate, setRefDate] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true)
+    const [{ data: judgments }, { data: items }, { data: classifications }, { data: actuals }, { data: history }] = await Promise.all([
+      supabase.from('judgments').select('*'),
+      supabase.from('items').select('item_code, item_name, size, series, supplier, lead_time_days, product_group'),
+      supabase.from('stock_classification').select('item_code, stock_type, operation_grade'),
+      supabase.from('monthly_actuals').select('item_code, reference_date'),
+      supabase.from('transition_history').select('*').order('changed_at', { ascending: false }),
+    ])
+
+    const PAGE = 1000
+    let shipments = []
+    let from = 0
+    while (true) {
+      const { data: page } = await supabase
+        .from('monthly_shipments')
+        .select('item_code, year_month, quantity')
+        .range(from, from + PAGE - 1)
+      if (!page?.length) break
+      shipments = shipments.concat(page)
+      if (page.length < PAGE) break
+      from += PAGE
+    }
+
+    const itemMap = Object.fromEntries((items || []).map(i => [i.item_code, i]))
+    const classMap = Object.fromEntries((classifications || []).map(c => [c.item_code, c]))
+
+    const merged = (judgments || []).map(j => ({
+      ...j,
+      ...itemMap[j.item_code],
+      ...classMap[j.item_code],
+    }))
+
+    const sMap = {}
+    for (const s of (shipments || [])) {
+      const key = s.item_code?.trim().toUpperCase()
+      if (!key) continue
+      if (!sMap[key]) sMap[key] = []
+      sMap[key].push(s)
+    }
+
+    const historyMerged = (history || []).map(h => ({ ...h, ...itemMap[h.item_code] }))
+    const dates = (actuals || []).map(a => a.reference_date).filter(Boolean).sort()
+    if (dates.length) setRefDate(dates[dates.length - 1])
+
+    setDashData(merged)
+    setShipmentMap(sMap)
+    setAllHistory(historyMerged)
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
-    async function testConnection() {
-      const { data, error } = await supabase.from('items').select('count')
+    supabase.from('items').select('count').then(({ error }) => {
       if (!error) setConnected(true)
-    }
-    testConnection()
-  }, [])
+    })
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
   async function handleRunJudgments() {
     setJudging(true)
@@ -22,6 +87,7 @@ function App() {
     try {
       const { total, changed } = await runJudgments()
       setJudgmentStatus(`✅ 판정 완료! ${total}개 품목 처리, 변경 ${changed.length}건`)
+      await fetchDashboardData()
     } catch (err) {
       setJudgmentStatus('❌ 오류: ' + err.message)
     } finally {
@@ -30,38 +96,78 @@ function App() {
   }
 
   return (
-    <div style={{ padding: '40px', fontFamily: 'sans-serif', maxWidth: '600px' }}>
-      <h1>Stock Radar</h1>
-      <p>Supabase 연결 상태: {connected ? '✅ 연결됨' : '❌ 연결 안됨'}</p>
-      <hr />
-      <Upload />
-      <hr />
-      <h2>판정 실행</h2>
-      <button
-        onClick={handleRunJudgments}
-        disabled={judging}
-        style={{
-          padding: '12px 24px',
-          background: '#1E3A5F',
-          color: 'white',
-          border: 'none',
-          borderRadius: '8px',
-          cursor: judging ? 'not-allowed' : 'pointer',
-          fontSize: '16px'
-        }}
-      >
-        {judging ? '판정 중...' : '판정 실행'}
-      </button>
+    <div style={{ fontFamily: 'sans-serif', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
+      {/* 네비게이션 */}
+      <div style={{ background: '#1a1a2e', height: 48, padding: '0 28px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 8 }}>
+          <img src="/로고_ww.png" alt="SLOUBED" style={{ height: 18, opacity: 0.95 }} />
+          <span style={{ color: '#4b5563', fontSize: 16 }}>|</span>
+          <span style={{ color: '#9ca3af', fontSize: 15, letterSpacing: '0.08em', fontWeight: 500 }}>Stock Radar</span>
+        </div>
+
+        {NAV_TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            background: 'none', border: 'none',
+            color: tab === t.key ? '#fff' : '#6b7280',
+            fontSize: 13, cursor: 'pointer',
+            padding: '0 4px', alignSelf: 'stretch',
+            display: 'inline-flex', alignItems: 'center',
+            borderBottom: tab === t.key ? '2px solid #fff' : '2px solid transparent',
+            fontWeight: tab === t.key ? 600 : 400,
+          }}>
+            {t.label}
+          </button>
+        ))}
+
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {(tab === 'overview' || tab === 'setup') && (
+            <button onClick={handleRunJudgments} disabled={judging} style={{
+              padding: '7px 16px',
+              background: judging ? '#374151' : '#4f46e5',
+              color: 'white', border: 'none', borderRadius: 6,
+              cursor: judging ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 500,
+            }}>
+              {judging ? '판정 중...' : '판정 실행'}
+            </button>
+          )}
+          <span style={{ color: connected ? '#4ade80' : '#f87171', fontSize: 11 }}>
+            {connected ? '● 연결됨' : '● 연결 안됨'}
+          </span>
+        </div>
+      </div>
+
+      {/* 판정 상태 메시지 */}
       {judgmentStatus && (
-        <p style={{
-          marginTop: '16px',
-          padding: '12px',
-          background: judgmentStatus.includes('✅') ? '#f0fdf4' : judgmentStatus.includes('❌') ? '#fef2f2' : '#f8fafc',
-          borderRadius: '8px'
+        <div style={{
+          padding: '10px 28px', fontSize: 13, flexShrink: 0,
+          background: judgmentStatus.includes('✅') ? '#f0fdf4' : '#fef2f2',
+          color: judgmentStatus.includes('✅') ? '#166534' : '#991b1b',
+          borderBottom: '1px solid #e5e7eb',
         }}>
           {judgmentStatus}
-        </p>
+          <button onClick={() => setJudgmentStatus('')} style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 14 }}>×</button>
+        </div>
       )}
+
+      {/* 콘텐츠 */}
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        {tab === 'setup' && <Setup />}
+        {tab !== 'setup' && (
+          <div style={{ width: '100%', height: '100%', padding: '16px 20px', background: '#f0f2f5', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {loading ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>
+                데이터 불러오는 중...
+              </div>
+            ) : (
+              <>
+                {tab === 'overview' && <TabOverview data={dashData} shipmentMap={shipmentMap} refDate={refDate} />}
+                {tab === 'analysis' && <TabAnalysis data={dashData} shipmentMap={shipmentMap} />}
+                {tab === 'history' && <TabHistory allHistory={allHistory} />}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

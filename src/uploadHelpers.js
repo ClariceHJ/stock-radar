@@ -27,6 +27,7 @@ export async function uploadBaseInfo(rows) {
     series: row['03-05. 시리즈'],
     supplier: row['공급처(보정)'],
     lead_time_days: row['06-09. 리드타임'] || null,
+    product_group: row['03-04. 품목군'] || null,
     is_active: true,
   }))
 
@@ -50,9 +51,6 @@ export async function uploadBaseInfo(rows) {
 
   const actuals = rows.map(row => ({
     item_code: row['CODE'],
-    current_stock: row['기말재고수량'] || 0,
-    monthly_shipment_qty: row['매출수량'] || 0,
-    remaining_4w: row['출고예정량_4W'] || 0,
     reference_date: new Date().toISOString().slice(0, 10),
   }))
 
@@ -94,15 +92,49 @@ export async function uploadMonthlyShipments(rows) {
   const validCodes = new Set(existingItems.map(i => i.item_code))
   const validRecords = records.filter(r => validCodes.has(r.item_code))
 
-  // 당월 제외
+  const { error } = await supabase
+    .from('monthly_shipments')
+    .upsert(validRecords, { onConflict: 'item_code,year_month' })
+  if (error) throw new Error('monthly_shipments 저장 실패: ' + error.message)
+
+  return validRecords.length
+}
+
+export async function uploadMonthlyInventory(rows) {
+  const records = []
+
+  for (const row of rows) {
+    const itemCode = row['CODE']
+    if (!itemCode) continue
+
+    for (const [key, value] of Object.entries(row)) {
+      if (key === 'CODE') continue
+      if (!value && value !== 0) continue
+
+      const match = key.match(/(\d{4})년\s*(\d{1,2})월/)
+      if (!match) continue
+      const yearMonth = `${match[1]}-${String(match[2]).padStart(2, '0')}`
+
+      records.push({
+        item_code: itemCode,
+        year_month: yearMonth,
+        quantity: Math.max(Number(value) || 0, 0),
+      })
+    }
+  }
+
+  const { data: existingItems } = await supabase.from('items').select('item_code')
+  const validCodes = new Set(existingItems.map(i => i.item_code))
+  const validRecords = records.filter(r => validCodes.has(r.item_code))
+
   const months = [...new Set(validRecords.map(r => r.year_month))].sort()
   const currentMonth = months[months.length - 1]
   const filtered = validRecords.filter(r => r.year_month !== currentMonth)
 
   const { error } = await supabase
-    .from('monthly_shipments')
+    .from('monthly_inventory')
     .upsert(filtered, { onConflict: 'item_code,year_month' })
-  if (error) throw new Error('monthly_shipments 저장 실패: ' + error.message)
+  if (error) throw new Error('monthly_inventory 저장 실패: ' + error.message)
 
   return filtered.length
 }
