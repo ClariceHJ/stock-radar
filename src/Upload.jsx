@@ -55,7 +55,7 @@ const CRITERIA = [
     color: '#ea580c',
     bg: '#fff7ed',
     border: '#fed7aa',
-    condition: '비재고 품목 중 피크 > 12 또는 트렌드 상승 또는 수요 모멘텀 > 1.5',
+    condition: '비재고 품목 중 피크 > 12개 또는 최근 3개월 평균 ÷ 6개월 평균 > 1.5',
   },
   {
     label: '정상',

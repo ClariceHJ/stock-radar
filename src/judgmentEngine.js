@@ -80,10 +80,8 @@ export async function runJudgments() {
     const avg6m = range6.reduce((s, ym) => s + (shipLookup[ym] ?? 0), 0) / 6
     const peakQty = all.length ? Math.max(...all) : 0
 
-    const recentAvg = avg3m
     const prevAvg = range3to6.reduce((s, ym) => s + (shipLookup[ym] ?? 0), 0) / 3
-    const trendSlope = prevAvg > 0 ? (recentAvg - prevAvg) / prevAvg : 0
-    const demandMomentum = prevAvg > 0 ? recentAvg / prevAvg : 0
+    const demandMomentum = prevAvg > 0 ? avg3m / prevAvg : 0
 
     const latestShipmentMonth = monthlyData.length > 0 ? monthlyData[0].year_month : null
     let inventory_turnover = null
@@ -113,7 +111,6 @@ export async function runJudgments() {
       reasons.push('3개월평균>10')
     } else if (cls.stock_type === '비재고') {
       if (peakQty > 12) reasons.push('피크>12')
-      if (trendSlope > 0.2) reasons.push('트렌드상승')
       if (demandMomentum > 1.5) reasons.push('수요모멘텀>1.5')
       if (reasons.length > 0) judgment = '모니터링'
     }
@@ -125,7 +122,6 @@ export async function runJudgments() {
       avg_6m: Math.round(avg6m * 10) / 10,
       avg_3m: Math.round(avg3m * 10) / 10,
       peak_qty: peakQty,
-      trend_slope: Math.round(trendSlope * 100) / 100,
       demand_momentum: Math.round(demandMomentum * 100) / 100,
       judged_at: new Date().toISOString(),
       previous_judgment: prevMap[code] || null,
