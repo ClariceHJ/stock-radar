@@ -35,8 +35,10 @@ export async function runJudgments() {
 
   const shipmentMap = {}
   for (const s of shipments) {
-    if (!shipmentMap[s.item_code]) shipmentMap[s.item_code] = []
-    shipmentMap[s.item_code].push({ year_month: s.year_month, quantity: s.quantity })
+    const key = s.item_code?.trim().toUpperCase()
+    if (!key) continue
+    if (!shipmentMap[key]) shipmentMap[key] = []
+    shipmentMap[key].push({ year_month: s.year_month, quantity: s.quantity })
   }
 
   const { data: inventories } = await supabase
@@ -45,9 +47,20 @@ export async function runJudgments() {
 
   const inventoryMap = {}
   for (const inv of (inventories || [])) {
-    if (!inventoryMap[inv.item_code]) inventoryMap[inv.item_code] = []
-    inventoryMap[inv.item_code].push({ year_month: inv.year_month, quantity: inv.quantity })
+    const key = inv.item_code?.trim().toUpperCase()
+    if (!key) continue
+    if (!inventoryMap[key]) inventoryMap[key] = []
+    inventoryMap[key].push({ year_month: inv.year_month, quantity: inv.quantity })
   }
+
+  // 당월 기준 고정 구간 생성 (기준월 제외, 직전 N개월)
+  const now = new Date()
+  const toYM = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  const makeRange = (startOffset, count) =>
+    Array.from({ length: count }, (_, i) => toYM(new Date(now.getFullYear(), now.getMonth() - startOffset - i, 1)))
+  const range3 = makeRange(1, 3)   // 직전 3개월
+  const range6 = makeRange(1, 6)   // 직전 6개월
+  const range3to6 = makeRange(4, 3) // 4~6개월 전 (추세 비교)
 
   const judgmentResults = []
 
@@ -56,21 +69,19 @@ export async function runJudgments() {
     const cls = classMap[code]
     if (!cls) continue
 
-    const monthlyData = (shipmentMap[code] || [])
+    const normCode = code?.trim().toUpperCase()
+    const monthlyData = (shipmentMap[normCode] || [])
       .sort((a, b) => b.year_month.localeCompare(a.year_month))
 
-    const last6 = monthlyData.slice(0, 6).map(m => m.quantity)
-    const last3 = monthlyData.slice(0, 3).map(m => m.quantity)
+    const shipLookup = Object.fromEntries(monthlyData.map(m => [m.year_month, m.quantity]))
     const all = monthlyData.map(m => m.quantity)
 
-    const avg6m = last6.length ? last6.reduce((a, b) => a + b, 0) / last6.length : 0
-    const avg3m = last3.length ? last3.reduce((a, b) => a + b, 0) / last3.length : 0
+    const avg3m = range3.reduce((s, ym) => s + (shipLookup[ym] ?? 0), 0) / 3
+    const avg6m = range6.reduce((s, ym) => s + (shipLookup[ym] ?? 0), 0) / 6
     const peakQty = all.length ? Math.max(...all) : 0
 
-    const recent3 = monthlyData.slice(0, 3).map(m => m.quantity)
-    const prev3 = monthlyData.slice(3, 6).map(m => m.quantity)
-    const recentAvg = recent3.length ? recent3.reduce((a, b) => a + b, 0) / recent3.length : 0
-    const prevAvg = prev3.length ? prev3.reduce((a, b) => a + b, 0) / prev3.length : 0
+    const recentAvg = avg3m
+    const prevAvg = range3to6.reduce((s, ym) => s + (shipLookup[ym] ?? 0), 0) / 3
     const trendSlope = prevAvg > 0 ? (recentAvg - prevAvg) / prevAvg : 0
     const demandMomentum = prevAvg > 0 ? recentAvg / prevAvg : 0
 
@@ -84,7 +95,7 @@ export async function runJudgments() {
       })
       const shipLookup = Object.fromEntries(monthlyData.map(m => [m.year_month, m.quantity]))
       const invLookup = Object.fromEntries(
-        (inventoryMap[code] || []).map(m => [m.year_month, Math.max(m.quantity, 0)])
+        (inventoryMap[normCode] || []).map(m => [m.year_month, Math.max(m.quantity, 0)])
       )
       const shipAvg = months12.reduce((s, ym) => s + (shipLookup[ym] ?? 0), 0) / 12
       const invAvg = months12.reduce((s, ym) => s + (invLookup[ym] ?? 0), 0) / 12

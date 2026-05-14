@@ -267,20 +267,20 @@ function SummaryCard({ counts, changedCount, total, judgmentFilter, setJudgmentF
   ]
 
   return (
-    <div style={{ background: '#fff', border: '0.5px solid #e5e7eb', borderRadius: 14, padding: '20px 24px', display: 'flex', alignItems: 'center', flexShrink: 0, boxShadow: CARD_SHADOW, marginBottom: 14 }}>
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 14, width: '100%' }}>
       {/* 도넛 + 범례 */}
-      <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexShrink: 0 }}>
-        <svg width="96" height="96" viewBox="0 0 100 100">
+      <div style={{ flex: 4, display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+        <svg width="140" height="140" viewBox="0 0 100 100">
           {total === 0
             ? <circle cx="50" cy="50" r="42" fill="none" stroke="#f3f4f6" strokeWidth="16" />
             : segments.map(({ key, color, start, sweep }) =>
                 sweep > 0 && <path key={key} d={arcPath(50, 50, 46, 30, start, sweep)} fill={color} />
               )
           }
-          <text x="50" y="46" textAnchor="middle" fontSize="20" fontWeight="700" fill="#111827" fontFamily="sans-serif">{total}</text>
-          <text x="50" y="60" textAnchor="middle" fontSize="10" fill="#9ca3af" fontFamily="sans-serif">품목</text>
+          <text x="50" y="43" textAnchor="middle" dominantBaseline="central" fontSize="21" fontWeight="700" fill="#111827" fontFamily="sans-serif">{total}</text>
+          <text x="50" y="57" textAnchor="middle" dominantBaseline="central" fontSize="11" fill="#9ca3af" fontFamily="sans-serif">품목</text>
         </svg>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
           {JUDGMENTS.map(key => {
             const count = counts[key] || 0
             const pct = total > 0 ? Math.round(count / total * 100) : 0
@@ -288,10 +288,10 @@ function SummaryCard({ counts, changedCount, total, judgmentFilter, setJudgmentF
             const dimmed = judgmentFilter ? !active : changedFilter
             return (
               <div key={key} onClick={() => { setJudgmentFilter(active ? '' : key); setChangedFilter(false) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.15s' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: DONUT_COLORS[key], flexShrink: 0 }} />
-                <span style={{ fontSize: 11, color: '#374151', fontWeight: active ? 700 : 500, whiteSpace: 'nowrap' }}>{key}</span>
-                <span style={{ fontSize: 11, color: '#9ca3af' }}>{pct}%</span>
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.15s' }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: DONUT_COLORS[key], flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: '#374151', fontWeight: active ? 700 : 500, whiteSpace: 'nowrap' }}>{key}</span>
+                <span style={{ fontSize: 13, color: '#9ca3af' }}>{pct}%</span>
               </div>
             )
           })}
@@ -299,10 +299,10 @@ function SummaryCard({ counts, changedCount, total, judgmentFilter, setJudgmentF
       </div>
 
       {/* 세로 구분선 */}
-      <div style={{ width: '0.5px', background: '#e5e7eb', alignSelf: 'stretch', margin: '0 28px', flexShrink: 0 }} />
+      <div style={{ width: '0.5px', background: '#e5e7eb', alignSelf: 'stretch', margin: '0 20px', flexShrink: 0 }} />
 
       {/* 숫자 바 */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+      <div style={{ flex: 6, display: 'flex', alignItems: 'center' }}>
         {rightItems.map(({ key, color, count }, idx) => {
           const active = key === '판정 변경' ? changedFilter : judgmentFilter === key
           const dimmed = key === '판정 변경'

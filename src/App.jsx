@@ -15,7 +15,7 @@ function App() {
   const [connected, setConnected] = useState(false)
   const [judging, setJudging] = useState(false)
   const [judgmentStatus, setJudgmentStatus] = useState('')
-  const [tab, setTab] = useState('overview')
+  const [tab, setTab] = useState('setup')
 
   const [dashData, setDashData] = useState([])
   const [shipmentMap, setShipmentMap] = useState({})
@@ -97,26 +97,30 @@ function App() {
   return (
     <div style={{ fontFamily: 'sans-serif', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f0f2f5' }}>
       {/* 네비게이션 */}
-      <div style={{ background: '#1a1a2e', height: 48, padding: '0 28px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginRight: 8 }}>
-          <img src="/로고_ww.png" alt="SLOUBED" style={{ height: 18, opacity: 0.95 }} />
+      <div style={{ background: '#1a1a2e', height: 48, padding: '0 28px', flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center' }}>
+        {/* 로고 — 왼쪽 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img src={`${import.meta.env.BASE_URL}로고_ww.png`} alt="SLOUBED" style={{ height: 18, opacity: 0.95 }} />
           <span style={{ color: '#4b5563', fontSize: 16 }}>|</span>
           <span style={{ color: '#9ca3af', fontSize: 15, letterSpacing: '0.08em', fontWeight: 500 }}>Stock Radar</span>
         </div>
 
-        {NAV_TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            background: 'none', border: 'none',
-            color: tab === t.key ? '#fff' : '#6b7280',
-            fontSize: 13, cursor: 'pointer',
-            padding: '0 4px', alignSelf: 'stretch',
-            display: 'inline-flex', alignItems: 'center',
-            borderBottom: tab === t.key ? '2px solid #fff' : '2px solid transparent',
-            fontWeight: tab === t.key ? 600 : 400,
-          }}>
-            {t.label}
-          </button>
-        ))}
+        {/* 탭 — 가운데 절대 위치 */}
+        <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'stretch', height: '100%' }}>
+          {NAV_TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{
+              background: 'none', border: 'none',
+              color: tab === t.key ? '#fff' : '#6b7280',
+              fontSize: 13, cursor: 'pointer',
+              padding: '0 16px',
+              display: 'inline-flex', alignItems: 'center',
+              borderBottom: tab === t.key ? '2px solid #fff' : '2px solid transparent',
+              fontWeight: tab === t.key ? 600 : 400,
+            }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {(tab === 'overview' || tab === 'setup') && (
